@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cosmic Pong - Neural Arena</title>
+    <link rel="icon" href="data:image/svg+xml;base64,ZGF0YTppbWFnZS9zdmcreG1sLDxzdmcgeG1sbnM9J2h0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnJyB2aWV3Qm94PScwIDAgMTAwIDEwMCc+PGNpcmNsZSBjeD0nNTAnIGN5PSc1MCcgcj0nNDAnIGZpbGw9J3JnYmEoMzQsIDE5MywgMTk1LCAwLjkpJy8+PGNpcmNsZSBjeD0nNTAnIGN5PSc1MCcgcj0nMjAnIGZpbGw9J3JnYmEoMjUzLCAxODcsIDQ1LCAwLjkpJy8+PC9zdmc+Cg==">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: 
+                radial-gradient(circle at 30% 20%, rgba(34, 193, 195, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 70% 80%, rgba(253, 187, 45, 0.1) 0%, transparent 50%),
+                linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 50%, #0f0f0f 100%);
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+            padding: 10px;
+            touch-action: none;
+        }
+
+        .ambient-particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(34, 193, 195, 0.4);
+            border-radius: 50%;
+            animation: float 8s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) scale(1); opacity: 0.2; }
+            50% { transform: translateY(-30px) scale(1.2); opacity: 0.8; }
+        }
+
+        .game-container {
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(20px);
+            overflow: hidden;
+            box-shadow: 
+                0 20px 40px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            width: min(95vw, 1200px);
+            height: min(85vh, 700px);
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            background: transparent;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        .mode-selection {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.98);
+            backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            z-index: 30;
+        }
+
+        .mode-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .mode-title {
+            font-size: clamp(24px, 4vw, 42px);
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .mode-subtitle {
+            font-size: clamp(14px, 2vw, 18px);
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 400;
+        }
+
+        .modes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            max-width: 800px;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        .mode-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            min-height: 180px;
+        }
+
+        .mode-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(34, 193, 195, 0.5), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .mode-card:hover {
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(34, 193, 195, 0.3);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .mode-card:hover::before {
+            opacity: 1;
+        }
+
+        .mode-card.selected {
+            background: rgba(34, 193, 195, 0.1);
+            border-color: rgba(34, 193, 195, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .mode-card.selected::before {
+            opacity: 1;
+            background: linear-gradient(90deg, transparent, rgba(34, 193, 195, 0.8), transparent);
+        }
+
+        .mode-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(34, 193, 195, 0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            font-size: 20px;
+        }
+
+        .mode-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .mode-description {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.4;
+            margin-bottom: 20px;
+        }
+
+        .time-selector {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .time-option {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .time-option:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .time-option.selected {
+            background: rgba(34, 193, 195, 0.2);
+            border-color: rgba(34, 193, 195, 0.4);
+            color: rgba(34, 193, 195, 1);
+        }
+
+        .start-game-container {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .start-game-btn {
+            background: linear-gradient(135deg, rgba(34, 193, 195, 0.9), rgba(253, 187, 45, 0.9));
+            border: none;
+            border-radius: 12px;
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #000000;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 4px 20px rgba(34, 193, 195, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .start-game-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(34, 193, 195, 0.4);
+        }
+
+        .start-game-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .game-hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 10;
+        }
+
+        .score-section {
+            display: flex;
+            align-items: center;
+            gap: 40px;
+        }
+
+        .score-display {
+            text-align: center;
+            color: #ffffff;
+        }
+
+        .score-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .score-value {
+            font-size: clamp(24px, 4vw, 36px);
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: #ffffff;
+        }
+
+        .game-logo {
+            font-size: clamp(16px, 3vw, 20px);
+            font-weight: 600;
+            color: #ffffff;
+            text-align: center;
+        }
+
+        .timer-section {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 12px 16px;
+            text-align: center;
+            min-width: 80px;
+        }
+
+        .timer-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .timer-value {
+            font-size: clamp(16px, 3vw, 24px);
+            font-weight: 600;
+            color: #ffffff;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .timer-warning {
+            animation: timerBlink 1s ease-in-out infinite;
+        }
+
+        @keyframes timerBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .game-stats {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-label {
+            min-width: 40px;
+            text-align: right;
+        }
+
+        .stat-value {
+            color: rgba(34, 193, 195, 0.8);
+            font-weight: 500;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(20px);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 25;
+        }
+
+        .game-over-content {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            backdrop-filter: blur(20px);
+        }
+
+        .game-over-title {
+            font-size: clamp(24px, 4vw, 32px);
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 16px;
+        }
+
+        .final-score {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 16px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .winner-text {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            color: rgba(34, 193, 195, 1);
+        }
+
+        .game-over-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 14px;
+            color: #ffffff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, rgba(34, 193, 195, 0.9), rgba(253, 187, 45, 0.9));
+            border: none;
+            color: #000000;
+        }
+
+        .pause-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        .pause-content {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            backdrop-filter: blur(20px);
+        }
+
+        .pause-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 12px;
+        }
+
+        .pause-subtitle {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 20px;
+        }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 15;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .control-item {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .control-key {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            padding: 2px 4px;
+            font-size: 9px;
+            font-family: 'JetBrains Mono', monospace;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .combo-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(253, 187, 45, 1);
+            font-size: clamp(20px, 4vw, 28px);
+            font-weight: 700;
+            opacity: 0;
+            z-index: 15;
+            pointer-events: none;
+            text-shadow: 0 0 20px rgba(253, 187, 45, 0.5);
+        }
+
+        .combo-show {
+            animation: comboShow 1.2s ease-out;
+        }
+
+        @keyframes comboShow {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .powerup-indicator {
+            position: absolute;
+            top: 90px;
+            left: 20px;
+            background: rgba(253, 187, 45, 0.2);
+            border: 1px solid rgba(253, 187, 45, 0.4);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: rgba(253, 187, 45, 1);
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        }
+
+        .powerup-indicator.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .sound-control {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 30;
+            transition: all 0.3s ease;
+        }
+        
+        .sound-control:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .sound-icon {
+            width: 20px;
+            height: 20px;
+            fill: rgba(255, 255, 255, 0.7);
+        }
+        
+        .sound-off .sound-icon-on {
+            display: none;
+        }
+        
+        .sound-on .sound-icon-off {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .game-container {
+                width: 98vw;
+                height: 75vh;
+                border-radius: 16px;
+            }
+            
+            .score-section {
+                gap: 20px;
+            }
+            
+            .game-hud {
+                padding: 0 15px;
+                height: 70px;
+            }
+            
+            .game-stats {
+                font-size: 10px;
+                gap: 4px;
+            }
+            
+            .powerup-indicator {
+                left: 15px;
+                top: 80px;
+                font-size: 11px;
+                padding: 6px 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 5px;
+            }
+            
+            .game-container {
+                width: 100vw;
+                height: 70vh;
+            }
+            
+            .score-section {
+                gap: 15px;
+            }
+            
+            .mode-selection {
+                padding: 15px;
+            }
+            
+            .modes-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            
+            .mode-card {
+                padding: 20px;
+                min-height: 160px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-particles" id="ambientParticles"></div>
+    
+    <div class="game-container">
+        <div class="sound-control sound-off" id="soundControl">
+            <svg class="sound-icon sound-icon-on" viewBox="0 0 24 24">
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+            </svg>
+            <svg class="sound-icon sound-icon-off" viewBox="0 0 24 24">
+                <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+            </svg>
+        </div>
+
+        <div class="mode-selection" id="modeSelection">
+            <div class="mode-header">
+                <div class="mode-title">Choose Your Arena</div>
+                <div class="mode-subtitle">Select game mode and duration</div>
+            </div>
+            
+            <div class="modes-grid">
+                <div class="mode-card" data-mode="classic">
+                    <div class="mode-icon">⚡</div>
+                    <div class="mode-name">Classic</div>
+                    <div class="mode-description">Pure pong experience with modern visuals. Race against time to score the most points.</div>
+                    <div class="time-selector">
+                        <div class="time-option" data-time="60">1 MIN</div>
+                        <div class="time-option" data-time="180">3 MIN</div>
+                        <div class="time-option" data-time="300">5 MIN</div>
+                    </div>
+                </div>
+                
+                <div class="mode-card" data-mode="speed">
+                    <div class="mode-icon">🚀</div>
+                    <div class="mode-name">Speed Rush</div>
+                    <div class="mode-description">Ball speed increases every 10 seconds. Test your reflexes as the game becomes chaos.</div>
+                    <div class="time-selector">
+                        <div class="time-option" data-time="60">1 MIN</div>
+                        <div class="time-option" data-time="180">3 MIN</div>
+                        <div class="time-option" data-time="300">5 MIN</div>
+                    </div>
+                </div>
+                
+                <div class="mode-card" data-mode="survival">
+                    <div class="mode-icon">🛡️</div>
+                    <div class="mode-name">Survival</div>
+                    <div class="mode-description">AI evolves every 30 seconds, becoming faster and smarter. How long can you survive?</div>
+                    <div class="time-selector">
+                        <div class="time-option" data-time="60">1 MIN</div>
+                        <div class="time-option" data-time="180">3 MIN</div>
+                        <div class="time-option" data-time="300">5 MIN</div>
+                    </div>
+                </div>
+                
+                <div class="mode-card" data-mode="powerup">
+                    <div class="mode-icon">⭐</div>
+                    <div class="mode-name">Power Arena</div>
+                    <div class="mode-description">Collect power-ups every 20 seconds to gain temporary advantages over your opponent.</div>
+                    <div class="time-selector">
+                        <div class="time-option" data-time="60">1 MIN</div>
+                        <div class="time-option" data-time="180">3 MIN</div>
+                        <div class="time-option" data-time="300">5 MIN</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="start-game-container">
+                <button class="start-game-btn" id="startGameBtn" disabled>Start Game</button>
+            </div>
+        </div>
+        
+        <div class="game-hud">
+            <div class="score-section">
+                <div class="score-display">
+                    <div class="score-label">Player</div>
+                    <div class="score-value" id="playerScore">0</div>
+                </div>
+                <div class="game-logo">COSMIC PONG</div>
+                <div class="score-display">
+                    <div class="score-label">Neural AI</div>
+                    <div class="score-value" id="aiScore">0</div>
+                </div>
+            </div>
+            
+            <div class="timer-section">
+                <div class="timer-label">Time</div>
+                <div class="timer-value" id="timerValue">0:00</div>
+            </div>
+            
+            <div class="game-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Speed</span>
+                    <span class="stat-value" id="speedValue">1.0x</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Combo</span>
+                    <span class="stat-value" id="comboValue">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">FPS</span>
+                    <span class="stat-value" id="fpsValue">60</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="powerup-indicator" id="powerupIndicator">
+            POWER-UP ACTIVE
+        </div>
+        
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="pause-overlay" id="pauseOverlay">
+            <div class="pause-content">
+                <div class="pause-title">Game Paused</div>
+                <div class="pause-subtitle">Press SPACE to resume</div>
+                <button class="action-btn primary" id="resumeBtn">Resume</button>
+            </div>
+        </div>
+        
+        <div class="game-over" id="gameOver">
+            <div class="game-over-content">
+                <div class="game-over-title">Time's Up!</div>
+                <div class="final-score" id="finalScore">Final Score: 0 - 0</div>
+                <div class="winner-text" id="winnerText">Draw!</div>
+                <div class="game-over-actions">
+                    <button class="action-btn" id="newGameBtn">New Game</button>
+                    <button class="action-btn primary" id="playAgainBtn">Play Again</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="combo-display" id="comboDisplay"></div>
+        
+        <div class="controls-hint">
+            <div class="control-item">
+                <span class="control-key">MOUSE</span>
+                <span>Move</span>
+            </div>
+            <div class="control-item">
+                <span class="control-key">TOUCH</span>
+                <span>Swipe</span>
+            </div>
+            <div class="control-item">
+                <span class="control-key">SPACE</span>
+                <span>Pause</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simple audio system
+        let audioContext = null;
+        let soundEnabled = false;
+
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                return true;
+            } catch (e) {
+                console.warn('Audio not supported:', e);
+                return false;
+            }
+        }
+
+        function playTone(frequency, duration = 0.1, volume = 0.1) {
+            if (!soundEnabled || !audioContext) return;
+            
+            try {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = frequency;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
+                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + duration);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + duration);
+            } catch (e) {
+                console.warn('Error playing sound:', e);
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            
+            switch (type) {
+                case 'paddle':
+                    playTone(220, 0.1, 0.1);
+                    break;
+                case 'wall':
+                    playTone(150, 0.1, 0.1);
+                    break;
+                case 'score':
+                    playTone(440, 0.2, 0.15);
+                    setTimeout(() => playTone(660, 0.2, 0.15), 100);
+                    break;
+                case 'powerup':
+                    playTone(660, 0.3, 0.2);
+                    break;
+            }
+        }
+
+        function toggleSound() {
+            if (!audioContext) {
+                if (!initAudio()) return;
+            }
+            
+            soundEnabled = !soundEnabled;
+            
+            if (soundEnabled && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            const control = document.getElementById('soundControl');
+            control.className = soundEnabled ? 'sound-control sound-on' : 'sound-control sound-off';
+        }
+
+        class CosmicPong {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                if (!this.ctx) {
+                    alert('Canvas not supported');
+                    return;
+                }
+
+                // Initialize audio
+                initAudio();
+
+                // Game state
+                this.gameState = 'modeSelection';
+                this.selectedMode = null;
+                this.selectedTime = null;
+                this.timeRemaining = 0;
+                this.gameStartTime = 0;
+                this.playerScore = 0;
+                this.aiScore = 0;
+                this.combo = 0;
+                this.gameSpeed = 1.0;
+                this.lastTime = performance.now();
+                this.fps = 60;
+                this.frameCount = 0;
+                this.aiDifficulty = 1.0;
+                this.powerUps = [];
+                this.nextPowerUpTime = 0;
+                this.particles = [];
+                this.balls = [];
+                this.nextBallTime = 0;
+
+                // Input
+                this.mouseY = 0;
+                this.touchY = 0;
+                this.keys = {};
+
+                this.setupCanvas();
+                this.initializeGameObjects();
+                this.setupEventListeners();
+                this.createAmbientParticles();
+                this.gameLoop();
+            }
+
+            setupCanvas() {
+                const container = this.canvas.parentElement;
+                const rect = container.getBoundingClientRect();
+                
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                
+                this.canvas.style.width = rect.width + 'px';
+                this.canvas.style.height = rect.height + 'px';
+
+                // Handle window resize
+                window.addEventListener('resize', () => {
+                    setTimeout(() => {
+                        const newRect = container.getBoundingClientRect();
+                        this.canvas.width = newRect.width;
+                        this.canvas.height = newRect.height;
+                        this.canvas.style.width = newRect.width + 'px';
+                        this.canvas.style.height = newRect.height + 'px';
+                        this.initializeGameObjects();
+                    }, 100);
+                });
+            }
+
+            initializeGameObjects() {
+                const paddleWidth = Math.max(8, this.canvas.width * 0.008);
+                const paddleHeight = Math.max(60, this.canvas.height * 0.12);
+
+                this.playerPaddle = {
+                    x: 30,
+                    y: this.canvas.height / 2 - paddleHeight / 2,
+                    width: paddleWidth,
+                    height: paddleHeight,
+                    speed: 8,
+                    powerUpActive: false,
+                    powerUpType: null,
+                    powerUpEndTime: 0
+                };
+
+                this.aiPaddle = {
+                    x: this.canvas.width - 30 - paddleWidth,
+                    y: this.canvas.height / 2 - paddleHeight / 2,
+                    width: paddleWidth,
+                    height: paddleHeight,
+                    speed: 6
+                };
+
+                this.ball = this.createBall();
+                this.balls = [this.ball];
+                this.resetBall();
+            }
+
+            createBall() {
+                return {
+                    x: this.canvas.width / 2,
+                    y: this.canvas.height / 2,
+                    vx: 0,
+                    vy: 0,
+                    radius: Math.max(6, this.canvas.width * 0.006),
+                    trail: [],
+                    active: true,
+                    color: 'rgba(255, 255, 255, 0.95)'
+                };
+            }
+
+            resetBall(ball = this.ball) {
+                ball.x = this.canvas.width / 2;
+                ball.y = this.canvas.height / 2;
+                const baseSpeed = Math.max(3, this.canvas.width * 0.004);
+                ball.vx = (Math.random() > 0.5 ? 1 : -1) * baseSpeed;
+                ball.vy = (Math.random() - 0.5) * baseSpeed * 0.8;
+                ball.trail = [];
+                ball.active = true;
+                playSound('score');
+            }
+
+            setupEventListeners() {
+                // Prevent default touch behaviors
+                document.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+                document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+                // Mouse movement
+                this.canvas.addEventListener('mousemove', (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    this.mouseY = e.clientY - rect.top;
+                });
+
+                // Touch events
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const rect = this.canvas.getBoundingClientRect();
+                    this.touchY = e.touches[0].clientY - rect.top;
+                }, { passive: false });
+
+                this.canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    const rect = this.canvas.getBoundingClientRect();
+                    this.touchY = e.touches[0].clientY - rect.top;
+                }, { passive: false });
+
+                // Mode selection
+                document.addEventListener('click', (e) => {
+                    this.handleSelection(e);
+                });
+
+                document.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    this.handleSelection(e);
+                }, { passive: false });
+
+                // Keyboard
+                document.addEventListener('keydown', (e) => {
+                    this.keys[e.code] = true;
+                    if (e.code === 'Space') {
+                        e.preventDefault();
+                        if (this.gameState === 'playing' || this.gameState === 'paused') {
+                            this.togglePause();
+                        }
+                    }
+                });
+
+                document.addEventListener('keyup', (e) => {
+                    this.keys[e.code] = false;
+                });
+
+                // Sound control
+                document.getElementById('soundControl').addEventListener('click', toggleSound);
+                
+                // Game buttons
+                document.getElementById('startGameBtn').addEventListener('click', () => {
+                    if (!document.getElementById('startGameBtn').disabled) {
+                        this.startGame();
+                    }
+                });
+
+                document.getElementById('resumeBtn').addEventListener('click', () => {
+                    this.togglePause();
+                });
+
+                document.getElementById('playAgainBtn').addEventListener('click', () => {
+                    this.restartGame();
+                });
+
+                document.getElementById('newGameBtn').addEventListener('click', () => {
+                    this.showModeSelection();
+                });
+
+                // Visibility change
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden && this.gameState === 'playing') {
+                        this.togglePause();
+                    }
+                });
+            }
+
+            handleSelection(e) {
+                const modeCard = e.target.closest('.mode-card');
+                const timeOption = e.target.closest('.time-option');
+                const startBtn = e.target.closest('#startGameBtn');
+
+                if (modeCard) {
+                    document.querySelectorAll('.mode-card').forEach(card => 
+                        card.classList.remove('selected'));
+                    modeCard.classList.add('selected');
+                    this.selectedMode = modeCard.dataset.mode;
+                    this.updateStartButton();
+                }
+
+                if (timeOption) {
+                    const parentCard = timeOption.closest('.mode-card');
+                    if (parentCard && parentCard.classList.contains('selected')) {
+                        parentCard.querySelectorAll('.time-option').forEach(option => 
+                            option.classList.remove('selected'));
+                        timeOption.classList.add('selected');
+                        this.selectedTime = parseInt(timeOption.dataset.time);
+                        this.updateStartButton();
+                    }
+                }
+
+                if (startBtn && !startBtn.disabled) {
+                    this.startGame();
+                }
+            }
+
+            updateStartButton() {
+                const startBtn = document.getElementById('startGameBtn');
+                const isValid = this.selectedMode && this.selectedTime;
+                startBtn.disabled = !isValid;
+            }
+
+            createAmbientParticles() {
+                const container = document.getElementById('ambientParticles');
+                for (let i = 0; i < 30; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle';
+                    particle.style.left = Math.random() * 100 + '%';
+                    particle.style.top = Math.random() * 100 + '%';
+                    particle.style.animationDelay = Math.random() * 8 + 's';
+                    particle.style.animationDuration = (6 + Math.random() * 4) + 's';
+                    container.appendChild(particle);
+                }
+            }
+
+            startGame() {
+                if (!this.selectedMode || !this.selectedTime) return;
+
+                this.gameState = 'playing';
+                document.getElementById('modeSelection').style.display = 'none';
+                this.timeRemaining = this.selectedTime;
+                this.gameStartTime = performance.now();
+                this.playerScore = 0;
+                this.aiScore = 0;
+                this.combo = 0;
+                this.gameSpeed = 1.0;
+                this.aiDifficulty = 1.0;
+                this.powerUps = [];
+                this.particles = [];
+                this.nextPowerUpTime = performance.now() + 20000;
+                this.nextBallTime = performance.now() + 30000;
+
+                this.initializeGameObjects();
+                this.resetBall();
+                this.updateUI();
+            }
+
+            restartGame() {
+                document.getElementById('gameOver').style.display = 'none';
+                this.startGame();
+            }
+
+            showModeSelection() {
+                this.gameState = 'modeSelection';
+                document.getElementById('gameOver').style.display = 'none';
+                document.getElementById('modeSelection').style.display = 'flex';
+                this.resetGame();
+            }
+
+            resetGame() {
+                this.playerScore = 0;
+                this.aiScore = 0;
+                this.combo = 0;
+                this.gameSpeed = 1.0;
+                this.aiDifficulty = 1.0;
+                this.powerUps = [];
+                this.particles = [];
+                this.initializeGameObjects();
+                this.updateUI();
+            }
+
+            togglePause() {
+                if (this.gameState === 'playing') {
+                    this.gameState = 'paused';
+                    document.getElementById('pauseOverlay').style.display = 'flex';
+                } else if (this.gameState === 'paused') {
+                    this.gameState = 'playing';
+                    document.getElementById('pauseOverlay').style.display = 'none';
+                    this.gameStartTime = performance.now() - (this.selectedTime - this.timeRemaining) * 1000;
+                }
+            }
+
+            updateTimer() {
+                if (this.gameState !== 'playing') return;
+
+                const elapsed = (performance.now() - this.gameStartTime) / 1000;
+                this.timeRemaining = Math.max(0, this.selectedTime - elapsed);
+
+                const minutes = Math.floor(this.timeRemaining / 60);
+                const seconds = Math.floor(this.timeRemaining % 60);
+                document.getElementById('timerValue').textContent = 
+                    `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+                const timerSection = document.querySelector('.timer-section');
+                if (this.timeRemaining <= 30) {
+                    timerSection.classList.add('timer-warning');
+                } else {
+                    timerSection.classList.remove('timer-warning');
+                }
+
+                if (this.timeRemaining <= 0) {
+                    this.endGame();
+                }
+            }
+
+            endGame() {
+                this.gameState = 'gameOver';
+                document.getElementById('gameOver').style.display = 'flex';
+                document.getElementById('finalScore').textContent = 
+                    `Final Score: ${this.playerScore} - ${this.aiScore}`;
+
+                const winnerText = document.getElementById('winnerText');
+                if (this.playerScore > this.aiScore) {
+                    winnerText.textContent = 'Player Wins!';
+                    winnerText.style.color = 'rgba(34, 193, 195, 1)';
+                } else if (this.aiScore > this.playerScore) {
+                    winnerText.textContent = 'AI Wins!';
+                    winnerText.style.color = 'rgba(255, 100, 100, 1)';
+                } else {
+                    winnerText.textContent = 'Draw!';
+                    winnerText.style.color = 'rgba(253, 187, 45, 1)';
+                }
+            }
+
+            applyModeEffects() {
+                if (this.gameState !== 'playing') return;
+
+                const elapsed = (performance.now() - this.gameStartTime) / 1000;
+
+                switch (this.selectedMode) {
+                    case 'speed':
+                        this.gameSpeed = Math.min(2.5, 1.0 + Math.floor(elapsed / 10) * 0.3);
+                        break;
+                    case 'survival':
+                        this.aiDifficulty = Math.min(2.5, 1.0 + Math.floor(elapsed / 30) * 0.4);
+                        this.aiPaddle.speed = Math.min(10, 6 * this.aiDifficulty);
+                        break;
+                    case 'powerup':
+                        if (performance.now() > this.nextPowerUpTime) {
+                            this.spawnPowerUp();
+                            this.nextPowerUpTime = performance.now() + 20000;
+                        }
+                        this.updatePowerUps();
+                        break;
+                }
+            }
+
+            spawnPowerUp() {
+                const types = ['speed', 'size'];
+                const type = types[Math.floor(Math.random() * types.length)];
+                
+                this.powerUps.push({
+                    x: Math.random() * (this.canvas.width - 100) + 50,
+                    y: Math.random() * (this.canvas.height - 100) + 50,
+                    type: type,
+                    life: 600,
+                    size: 20
+                });
+            }
+
+            updatePowerUps() {
+                this.powerUps = this.powerUps.filter(powerUp => {
+                    powerUp.life--;
+
+                    if (this.checkPowerUpCollision(powerUp, this.playerPaddle)) {
+                        this.activatePowerUp(powerUp.type);
+                        this.createExplosion(powerUp.x, powerUp.y);
+                        playSound('powerup');
+                        return false;
+                    }
+
+                    return powerUp.life > 0;
+                });
+            }
+
+            checkPowerUpCollision(powerUp, paddle) {
+                return powerUp.x < paddle.x + paddle.width &&
+                       powerUp.x + powerUp.size > paddle.x &&
+                       powerUp.y < paddle.y + paddle.height &&
+                       powerUp.y + powerUp.size > paddle.y;
+            }
+
+            activatePowerUp(type) {
+                this.playerPaddle.powerUpActive = true;
+                this.playerPaddle.powerUpType = type;
+                this.playerPaddle.powerUpEndTime = performance.now() + 5000;
+
+                const indicator = document.getElementById('powerupIndicator');
+                indicator.textContent = `${type.toUpperCase()} ACTIVE`;
+                indicator.classList.add('active');
+
+                switch (type) {
+                    case 'speed':
+                        this.playerPaddle.speed = 15;
+                        break;
+                    case 'size':
+                        this.playerPaddle.height = Math.max(60, this.canvas.height * 0.12) * 1.5;
+                        break;
+                }
+            }
+
+            update(deltaTime) {
+                if (this.gameState !== 'playing') return;
+
+                deltaTime = Math.min(deltaTime, 50); // Cap deltaTime
+                const dt = deltaTime / 16.67; // Normalize to 60fps
+
+                this.updateTimer();
+                this.applyModeEffects();
+
+                // Update ball
+                this.ball.x += this.ball.vx * this.gameSpeed * dt;
+                this.ball.y += this.ball.vy * this.gameSpeed * dt;
+
+                // Ball trail
+                this.ball.trail.push({ x: this.ball.x, y: this.ball.y });
+                if (this.ball.trail.length > 10) {
+                    this.ball.trail.shift();
+                }
+
+                // Ball collision with walls
+                if (this.ball.y <= this.ball.radius || this.ball.y >= this.canvas.height - this.ball.radius) {
+                    this.ball.vy = -this.ball.vy;
+                    this.createExplosion(this.ball.x, this.ball.y);
+                    playSound('wall');
+                }
+
+                // Ball collision with paddles
+                if (this.checkCollision(this.ball, this.playerPaddle)) {
+                    this.ball.vx = Math.abs(this.ball.vx) * 1.05;
+                    this.ball.vy += (this.ball.y - (this.playerPaddle.y + this.playerPaddle.height / 2)) * 0.1;
+                    this.createExplosion(this.ball.x, this.ball.y);
+                    this.combo++;
+                    this.showCombo();
+                    playSound('paddle');
+                } else if (this.checkCollision(this.ball, this.aiPaddle)) {
+                    this.ball.vx = -Math.abs(this.ball.vx) * 1.05;
+                    this.ball.vy += (this.ball.y - (this.aiPaddle.y + this.aiPaddle.height / 2)) * 0.1;
+                    this.createExplosion(this.ball.x, this.ball.y);
+                    this.combo = 0;
+                    playSound('paddle');
+                }
+
+                // Scoring
+                if (this.ball.x < 0) {
+                    this.aiScore++;
+                    this.combo = 0;
+                    this.resetBall();
+                } else if (this.ball.x > this.canvas.width) {
+                    this.playerScore++;
+                    this.resetBall();
+                }
+
+                // Player paddle movement
+                const targetY = Math.max(this.mouseY, this.touchY) - this.playerPaddle.height / 2;
+                if (targetY !== -this.playerPaddle.height / 2) {
+                    this.playerPaddle.y += (targetY - this.playerPaddle.y) * 0.15 * dt;
+                }
+                
+                this.playerPaddle.y = Math.max(0, 
+                    Math.min(this.canvas.height - this.playerPaddle.height, this.playerPaddle.y));
+
+                // AI paddle movement
+                const aiCenter = this.aiPaddle.y + this.aiPaddle.height / 2;
+                const ballCenter = this.ball.y;
+                const aiSpeed = this.aiPaddle.speed * dt;
+
+                if (aiCenter < ballCenter - 10) {
+                    this.aiPaddle.y += aiSpeed;
+                } else if (aiCenter > ballCenter + 10) {
+                    this.aiPaddle.y -= aiSpeed;
+                }
+                
+                this.aiPaddle.y = Math.max(0, 
+                    Math.min(this.canvas.height - this.aiPaddle.height, this.aiPaddle.y));
+
+                // Power-up effects
+                if (this.playerPaddle.powerUpActive && performance.now() > this.playerPaddle.powerUpEndTime) {
+                    this.playerPaddle.powerUpActive = false;
+                    this.playerPaddle.speed = 8;
+                    this.playerPaddle.height = Math.max(60, this.canvas.height * 0.12);
+                    document.getElementById('powerupIndicator').classList.remove('active');
+                }
+
+                // Update particles
+                this.particles = this.particles.filter(particle => {
+                    particle.x += particle.vx * dt;
+                    particle.y += particle.vy * dt;
+                    particle.vx *= 0.98;
+                    particle.vy *= 0.98;
+                    particle.life--;
+                    return particle.life > 0;
+                });
+
+                this.updateUI();
+            }
+
+            checkCollision(ball, paddle) {
+                return ball.x - ball.radius < paddle.x + paddle.width &&
+                       ball.x + ball.radius > paddle.x &&
+                       ball.y - ball.radius < paddle.y + paddle.height &&
+                       ball.y + ball.radius > paddle.y;
+            }
+
+            createExplosion(x, y) {
+                for (let i = 0; i < 6; i++) {
+                    this.particles.push({
+                        x,
+                        y,
+                        vx: (Math.random() - 0.5) * 4,
+                        vy: (Math.random() - 0.5) * 4,
+                        life: 20
+                    });
+                }
+            }
+
+            showCombo() {
+                if (this.combo > 1) {
+                    const comboDisplay = document.getElementById('comboDisplay');
+                    comboDisplay.textContent = `COMBO ×${this.combo}`;
+                    comboDisplay.classList.remove('combo-show');
+                    setTimeout(() => comboDisplay.classList.add('combo-show'), 10);
+                }
+            }
+
+            updateUI() {
+                document.getElementById('playerScore').textContent = this.playerScore;
+                document.getElementById('aiScore').textContent = this.aiScore;
+                document.getElementById('speedValue').textContent = this.gameSpeed.toFixed(1) + 'x';
+                document.getElementById('comboValue').textContent = this.combo;
+                document.getElementById('fpsValue').textContent = Math.round(this.fps);
+            }
+
+            render() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Center line
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                this.ctx.lineWidth = 1;
+                this.ctx.setLineDash([5, 5]);
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.canvas.width / 2, 0);
+                this.ctx.lineTo(this.canvas.width / 2, this.canvas.height);
+                this.ctx.stroke();
+                this.ctx.setLineDash([]);
+
+                // Power-ups
+                this.powerUps.forEach(powerUp => {
+                    const pulse = 0.5 + Math.sin(performance.now() * 0.01) * 0.3;
+                    this.ctx.fillStyle = `rgba(253, 187, 45, ${pulse})`;
+                    this.ctx.fillRect(powerUp.x, powerUp.y, powerUp.size, powerUp.size);
+                });
+
+                // Paddles
+                this.ctx.fillStyle = 'rgba(34, 193, 195, 0.9)';
+                this.ctx.fillRect(this.playerPaddle.x, this.playerPaddle.y, 
+                    this.playerPaddle.width, this.playerPaddle.height);
+
+                this.ctx.fillStyle = 'rgba(255, 100, 100, 0.9)';
+                this.ctx.fillRect(this.aiPaddle.x, this.aiPaddle.y, 
+                    this.aiPaddle.width, this.aiPaddle.height);
+
+                // Ball trail
+                this.ball.trail.forEach((point, index) => {
+                    const alpha = (index / this.ball.trail.length) * 0.3;
+                    this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(point.x, point.y, this.ball.radius * alpha, 0, Math.PI * 2);
+                    this.ctx.fill();
+                });
+
+                // Ball
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                this.ctx.beginPath();
+                this.ctx.arc(this.ball.x, this.ball.y, this.ball.radius, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Particles
+                this.particles.forEach(particle => {
+                    this.ctx.fillStyle = 'rgba(34, 193, 195, 0.8)';
+                    this.ctx.beginPath();
+                    this.ctx.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                });
+            }
+
+            gameLoop() {
+                const currentTime = performance.now();
+                const deltaTime = currentTime - this.lastTime;
+                this.lastTime = currentTime;
+
+                this.frameCount++;
+                if (this.frameCount % 60 === 0) {
+                    this.fps = 1000 / deltaTime;
+                }
+
+                this.update(deltaTime);
+                this.render();
+
+                requestAnimationFrame(() => this.gameLoop());
+            }
+        }
+
+        // Initialize the game when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                new CosmicPong();
+            } catch (e) {
+                console.error('Game initialization failed:', e);
+                alert('Failed to initialize the game. Please refresh the page.');
+            }
+        });
+    </script>
+</body>
+</html>
