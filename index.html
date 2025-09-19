@@ -7,6 +7,17 @@
     <link rel="icon" href="data:image/svg+xml;base64,ZGF0YTppbWFnZS9zdmcreG1sLDxzdmcgeG1sbnM9J2h0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnJyB2aWV3Qm94PScwIDAgMTAwIDEwMCc+PGNpcmNsZSBjeD0nNTAnIGN5PSc1MCcgcj0nNDAnIGZpbGw9J3JnYmEoMzQsIDE5MywgMTk1LCAwLjkpJy8+PGNpcmNsZSBjeD0nNTAnIGN5PSc1MCcgcj0nMjAnIGZpbGw9J3JnYmEoMjUzLCAxODcsIDQ1LCAwLjkpJy8+PC9zdmc+Cg==">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-QC8BKVQMP2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-QC8BKVQMP2');
+    </script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
         
@@ -17,10 +28,25 @@
         }
 
         body {
-            background: 
-                radial-gradient(circle at 30% 20%, rgba(34, 193, 195, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 70% 80%, rgba(253, 187, 45, 0.1) 0%, transparent 50%),
-                linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 50%, #0f0f0f 100%);
+            --w: 80px;
+            --bg: black;
+            --first: #222;
+            --second: #333;
+
+            background:
+                radial-gradient(
+                    circle at right,
+                    var(--first) 10% 35%,
+                    var(--second) 30% 36%,
+                    transparent 30%
+                ),
+                radial-gradient(
+                    circle at left,
+                    var(--first) 15% 35%,
+                    var(--second) 3% 45%,
+                    transparent 30%
+                ) var(--bg);
+            background-size: var(--w) var(--w);
             font-family: 'Inter', sans-serif;
             display: flex;
             justify-content: center;
@@ -911,6 +937,11 @@
                 this.balls = [];
                 this.nextBallTime = 0;
 
+                // Enhanced visual effects
+                this.screenShake = { x: 0, y: 0, intensity: 0, duration: 0 };
+                this.sparkles = [];
+                this.comboDisplay = { alpha: 0, scale: 1, text: '' };
+
                 // Input
                 this.mouseY = 0;
                 this.touchY = 0;
@@ -1324,6 +1355,8 @@
                 if (this.ball.y <= this.ball.radius || this.ball.y >= this.canvas.height - this.ball.radius) {
                     this.ball.vy = -this.ball.vy;
                     this.createExplosion(this.ball.x, this.ball.y);
+                    this.addScreenShake(3, 150);
+                    this.createSparkles(this.ball.x, this.ball.y);
                     playSound('wall');
                 }
 
@@ -1334,12 +1367,17 @@
                     this.createExplosion(this.ball.x, this.ball.y);
                     this.combo++;
                     this.showCombo();
+                    this.addScreenShake(5, 200);
+                    this.createSparkles(this.ball.x, this.ball.y);
+                    this.updateComboDisplay();
                     playSound('paddle');
                 } else if (this.checkCollision(this.ball, this.aiPaddle)) {
                     this.ball.vx = -Math.abs(this.ball.vx) * 1.05;
                     this.ball.vy += (this.ball.y - (this.aiPaddle.y + this.aiPaddle.height / 2)) * 0.1;
                     this.createExplosion(this.ball.x, this.ball.y);
                     this.combo = 0;
+                    this.addScreenShake(4, 180);
+                    this.createSparkles(this.ball.x, this.ball.y);
                     playSound('paddle');
                 }
 
@@ -1394,6 +1432,25 @@
                     return particle.life > 0;
                 });
 
+                // Update sparkles
+                this.sparkles = this.sparkles.filter(sparkle => {
+                    sparkle.x += sparkle.vx * dt;
+                    sparkle.y += sparkle.vy * dt;
+                    sparkle.vx *= 0.95;
+                    sparkle.vy *= 0.95;
+                    sparkle.life--;
+                    return sparkle.life > 0;
+                });
+
+                // Update screen shake
+                this.updateScreenShake(deltaTime);
+
+                // Update combo display
+                if (this.comboDisplay.alpha > 0) {
+                    this.comboDisplay.alpha -= 0.02;
+                    this.comboDisplay.scale = Math.max(1, this.comboDisplay.scale * 0.98);
+                }
+
                 this.updateUI();
             }
 
@@ -1413,6 +1470,46 @@
                         vy: (Math.random() - 0.5) * 4,
                         life: 20
                     });
+                }
+            }
+
+            addScreenShake(intensity, duration) {
+                this.screenShake.intensity = intensity;
+                this.screenShake.duration = duration;
+            }
+
+            updateScreenShake(deltaTime) {
+                if (this.screenShake.duration > 0) {
+                    this.screenShake.duration -= deltaTime;
+                    const progress = this.screenShake.duration / 200;
+                    this.screenShake.x = (Math.random() - 0.5) * this.screenShake.intensity * progress;
+                    this.screenShake.y = (Math.random() - 0.5) * this.screenShake.intensity * progress;
+                } else {
+                    this.screenShake.x = 0;
+                    this.screenShake.y = 0;
+                }
+            }
+
+            createSparkles(x, y) {
+                for (let i = 0; i < 8; i++) {
+                    this.sparkles.push({
+                        x: x + (Math.random() - 0.5) * 20,
+                        y: y + (Math.random() - 0.5) * 20,
+                        vx: (Math.random() - 0.5) * 6,
+                        vy: (Math.random() - 0.5) * 6,
+                        size: Math.random() * 3 + 1,
+                        life: 30,
+                        maxLife: 30,
+                        color: Math.random() > 0.5 ? 'rgba(34, 193, 195, ' : 'rgba(253, 187, 45, '
+                    });
+                }
+            }
+
+            updateComboDisplay() {
+                if (this.combo > 1) {
+                    this.comboDisplay.text = `COMBO ×${this.combo}`;
+                    this.comboDisplay.alpha = 1;
+                    this.comboDisplay.scale = 1.5;
                 }
             }
 
@@ -1436,6 +1533,10 @@
             render() {
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+                // Apply screen shake
+                this.ctx.save();
+                this.ctx.translate(this.screenShake.x, this.screenShake.y);
+
                 // Center line
                 this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
                 this.ctx.lineWidth = 1;
@@ -1446,11 +1547,29 @@
                 this.ctx.stroke();
                 this.ctx.setLineDash([]);
 
-                // Power-ups
+                // Enhanced power-ups with glow and rotation
                 this.powerUps.forEach(powerUp => {
-                    const pulse = 0.5 + Math.sin(performance.now() * 0.01) * 0.3;
+                    const time = performance.now() * 0.01;
+                    const pulse = 0.6 + Math.sin(time) * 0.4;
+                    const rotation = time * 0.5;
+
+                    this.ctx.save();
+                    this.ctx.translate(powerUp.x + powerUp.size/2, powerUp.y + powerUp.size/2);
+                    this.ctx.rotate(rotation);
+
+                    // Outer glow
+                    this.ctx.fillStyle = `rgba(253, 187, 45, ${pulse * 0.3})`;
+                    this.ctx.fillRect(-powerUp.size, -powerUp.size, powerUp.size * 2, powerUp.size * 2);
+
+                    // Inner power-up
                     this.ctx.fillStyle = `rgba(253, 187, 45, ${pulse})`;
-                    this.ctx.fillRect(powerUp.x, powerUp.y, powerUp.size, powerUp.size);
+                    this.ctx.fillRect(-powerUp.size/2, -powerUp.size/2, powerUp.size, powerUp.size);
+
+                    // Sparkle effect
+                    this.ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
+                    this.ctx.fillRect(-2, -2, 4, 4);
+
+                    this.ctx.restore();
                 });
 
                 // Paddles
@@ -1462,16 +1581,38 @@
                 this.ctx.fillRect(this.aiPaddle.x, this.aiPaddle.y, 
                     this.aiPaddle.width, this.aiPaddle.height);
 
-                // Ball trail
+                // Enhanced ball trail with glow
                 this.ball.trail.forEach((point, index) => {
-                    const alpha = (index / this.ball.trail.length) * 0.3;
+                    const alpha = (index / this.ball.trail.length) * 0.4;
+                    const size = this.ball.radius * alpha * 1.2;
+
+                    // Outer glow
+                    this.ctx.fillStyle = `rgba(34, 193, 195, ${alpha * 0.3})`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(point.x, point.y, size * 2, 0, Math.PI * 2);
+                    this.ctx.fill();
+
+                    // Inner trail
                     this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
                     this.ctx.beginPath();
-                    this.ctx.arc(point.x, point.y, this.ball.radius * alpha, 0, Math.PI * 2);
+                    this.ctx.arc(point.x, point.y, size, 0, Math.PI * 2);
                     this.ctx.fill();
                 });
 
-                // Ball
+                // Enhanced ball with glow
+                // Outer glow
+                this.ctx.fillStyle = 'rgba(34, 193, 195, 0.3)';
+                this.ctx.beginPath();
+                this.ctx.arc(this.ball.x, this.ball.y, this.ball.radius * 2, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Inner glow
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                this.ctx.beginPath();
+                this.ctx.arc(this.ball.x, this.ball.y, this.ball.radius * 1.3, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Core ball
                 this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
                 this.ctx.beginPath();
                 this.ctx.arc(this.ball.x, this.ball.y, this.ball.radius, 0, Math.PI * 2);
@@ -1484,6 +1625,41 @@
                     this.ctx.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
                     this.ctx.fill();
                 });
+
+                // Sparkles
+                this.sparkles.forEach(sparkle => {
+                    const alpha = sparkle.life / sparkle.maxLife;
+                    this.ctx.fillStyle = sparkle.color + alpha + ')';
+                    this.ctx.beginPath();
+                    this.ctx.arc(sparkle.x, sparkle.y, sparkle.size * alpha, 0, Math.PI * 2);
+                    this.ctx.fill();
+                });
+
+                // Enhanced combo display
+                if (this.comboDisplay.alpha > 0) {
+                    this.ctx.save();
+                    this.ctx.globalAlpha = this.comboDisplay.alpha;
+                    this.ctx.translate(this.canvas.width / 2, this.canvas.height * 0.3);
+                    this.ctx.scale(this.comboDisplay.scale, this.comboDisplay.scale);
+                    this.ctx.fillStyle = 'rgba(253, 187, 45, 1)';
+                    this.ctx.font = 'bold 24px Inter';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText(this.comboDisplay.text, 0, 0);
+                    this.ctx.restore();
+                }
+
+                // AI difficulty indicator
+                if (this.aiDifficulty > 1.2) {
+                    this.ctx.save();
+                    this.ctx.fillStyle = `rgba(255, 100, 100, ${Math.min(0.8, (this.aiDifficulty - 1) * 0.5)})`;
+                    this.ctx.font = '14px Inter';
+                    this.ctx.textAlign = 'right';
+                    this.ctx.fillText(`AI Level: ${Math.floor(this.aiDifficulty * 10)/10}`, this.canvas.width - 20, 30);
+                    this.ctx.restore();
+                }
+
+                // Restore context from screen shake
+                this.ctx.restore();
             }
 
             gameLoop() {
